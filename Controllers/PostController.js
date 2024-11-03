@@ -83,8 +83,8 @@ const updatePost = (req, res) => {
 
 
 const getPostById = (req, res) => {
-    postId = req.params.id;
-    PostModel.findOne({ userId: postId }).exec().then((getPostById) => {
+    postId = req.params.postId;
+    PostModel.findById(postId).exec().then((getPostById) => {
         if (getPostById) {
             return res.status(200).json({
                 success: "",
