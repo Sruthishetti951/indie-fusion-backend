@@ -2,8 +2,15 @@ const { v4: uuid } = require("uuid");
 const PostModel = require("../Models/Post");
 const fs = require('fs');
 const ProfileImage = require("../Models/ProfileImage");
+const { createGroup } = require("./GroupController");
+const { POST_TYPES } = require("../utils/constants");
+const GroupSchema = require("../Models/Group");
+const Profile = require("../Models/Profile");
+const Users = require("../Models/Users");
+
+
 const createPost = (req, res) => {
-    const { text, type } = req.body
+    const { text, type, title = '' } = req.body
     const userId = req.params.id;
     const imageRequest = req.files?.media;
     if (!imageRequest && !text) {
@@ -13,7 +20,6 @@ const createPost = (req, res) => {
         });
     }
     let path = '';
-
     if (imageRequest) {
         const imageUuid = uuid();
         const url = `${userId}_${imageUuid}`;
@@ -27,16 +33,26 @@ const createPost = (req, res) => {
     const payload = {
         mediaUrl: path,
         text,
-        postType: type,
-        userId
+        type,
+        userId,
+        title
     }
     const newPost = new PostModel(payload);
     newPost.save().then((newPostResponse) => {
         if (newPostResponse) {
-            return res.status(200).json({
-                success: 'Post created successfully',
-                data: newPostResponse
-            });
+            if (type.toUpperCase() == "SELF") {
+                return res.status(200).json({
+                    success: 'Post created successfully',
+                    data: newPostResponse
+                });
+            } else {
+                req.body = {
+                    type,
+                    post: newPostResponse
+                }
+                createGroup(req, res);
+            }
+
         } else {
             try {
                 fs.unlinkSync(path);
@@ -50,6 +66,7 @@ const createPost = (req, res) => {
 
         }
     }).catch((e) => {
+        console.log(e);
         return res.status(500).json({
             success: 'Something went wrong..Please try again..!',
             data: null
@@ -106,39 +123,82 @@ const getPostById = (req, res) => {
 
 const getAllPosts = (req, res) => {
     id = req.params.id;
-    Promise.all([PostModel.find({ userId: id }).populate([
-        {
-            path: 'userId',
-            select: '-password'
-        },
-    ]), ProfileImage.findOne({ userId: id })]).then(([getAllPosts, imageData]) => {
-        if (getAllPosts) {
-            return res.status(200).json({
-                success: "",
-                data: { posts: getAllPosts, imageUrl: imageData?.imageUrl }
+    Promise.all([
+        // Fetch all posts by the user with type SELF and populate user details
+        PostModel.find({ userId: id, type: POST_TYPES.SELF }).populate([
+            {
+                path: "userId",
+                select: "-password",
+            },
+        ]),
+        // Fetch the user's profile image
+        ProfileImage.findOne({ userId: id }),
+        // Fetch the user's profile details (including isActive and openToCollab)
+        Profile.findOne({ userId: id }, "isActive openToCollab bio"),
+        Users.findOne({ _id: id }, "firstName lastName userName")
+
+    ])
+        .then(([getAllPosts, imageData, profileDetails, userDetails]) => {
+            if (getAllPosts) {
+                return res.status(200).json({
+                    success: "User details fetched successfully",
+                    data: {
+                        posts: getAllPosts, // Post data
+                        imageUrl: imageData?.imageUrl || null, // Profile image URL
+                        profileDetails: profileDetails || null, // Profile details (isActive and openToCollab)
+                        userDetails: userDetails || null
+                    },
+                });
+            } else {
+                return res.status(400).json({
+                    success: "No post available",
+                    data: null,
+                });
+            }
+        })
+        .catch((e) => {
+            console.error(e);
+            return res.status(500).json({
+                success: "Something went wrong..Please try again later...!",
+                data: null,
             });
-        } else {
-            return res.status(400).json({
-                success: "No post available",
-                data: null
-            });
-        }
-    }).catch((e) => {
-        return res.status(500).json({
-            success: "Something went wrong..Please try again later...!",
-            data: null
         });
-    })
 }
 
-const deletePost = (req, res) => {
-    postId = req.params.postId
-    PostModel.findByIdAndDelete(postId).exec().then((deletedPost) => {
+const deletePost = async (req, res) => {
+    postId = req.params.postId;
+    const post = await PostModel.findById(postId);
+    if (!post) {
+        return res.status(400).json({
+            success: "Post not found",
+            data: null
+        });
+    }
+
+    const { type } = post;
+    PostModel.findByIdAndDelete(postId).exec().then(async (deletedPost) => {
         if (deletedPost) {
-            try {
-                fs.unlinkSync(deletedPost.mediaUrl)
-            } catch {
-                console.log("Deletion failed");
+            if (deletedPost.mediaUrl) {
+                try {
+                    fs.unlinkSync(deletedPost.mediaUrl)
+                } catch {
+                    console.log("Deletion failed");
+                }
+            }
+            if (type === POST_TYPES.COLLAB || type === POST_TYPES.EVENT) {
+                const group = await GroupSchema.findOne({ postId });
+                if (group) {
+                    await GroupSchema.findOneAndDelete({ postId });
+                    return res.status(200).json({
+                        success: `Group deleted successfully.`,
+                        data: group
+                    });
+                } else {
+                    return res.status(400).json({
+                        success: `Group with Post ID not found`,
+                        data: null
+                    });
+                }
             }
             return res.status(200).json({
                 success: "Post deletion successfully",
@@ -151,7 +211,7 @@ const deletePost = (req, res) => {
             });
         }
     }).catch((e) => {
-        return res.status(400).json({
+        return res.status(500).json({
             success: "Something went wrong..Please try again later...!",
             data: null
         });
@@ -185,6 +245,14 @@ const getAllPostsForAllUsers = (req, res) => {
             }
         },
         {
+            $lookup: {
+                from: 'groups',               // Name of the 'users' collection
+                localField: '_id',         // Field in PostModel
+                foreignField: 'postId',          // Field in Users collection
+                as: 'groupDetails'             // Output array field for matched user documents
+            }
+        },
+        {
             $unwind: {
                 path: '$userDetails',         // Flatten the user details array
                 preserveNullAndEmptyArrays: true
@@ -203,13 +271,23 @@ const getAllPostsForAllUsers = (req, res) => {
             }
         },
         {
+            $unwind: {
+                path: '$groupDetails',         // Flatten the user details array
+                preserveNullAndEmptyArrays: true
+            }
+        },
+        {
             $project: {
                 mediaUrl: 1,
                 text: 1,
-                postType: 1,
+                type: 1,
+                title: 1,
                 createdDate: 1,
                 updatedDate: 1,
-                isActive: '$profileDetails.openToCollab',
+                isGroupActive: '$groupDetails.isActive',
+                isActive: '$profileDetails.isActive',
+                openToCollab: '$profileDetails.openToCollab',
+                "members": "$groupDetails.members",
                 'userDetails.firstName': 1,
                 'userDetails.lastName': 1,
                 'userDetails.userName': 1,
@@ -220,27 +298,27 @@ const getAllPostsForAllUsers = (req, res) => {
             }
         }
     ])
-    .then(posts => {
-        if (posts) {
-            return res.status(200).json({
-                success: "Successfully fetched",
+        .then(posts => {
+            if (posts) {
+                return res.status(200).json({
+                    success: "Successfully fetched",
+                    data: posts
+                });
+            } else {
+                return res.status(404).json({
+                    success: "Not able to get the posts. Please try again",
+                    data: null
+                });
+            }
+
+        })
+        .catch(err => {
+            return res.status(500).json({
+                success: 'Something went wrong..Please try again..!',
                 data: posts
             });
-        } else {
-            return res.status(404).json({
-                success: "Not able to get the posts. Please try again",
-                data: null
-            });
-        }
-        
-    })
-    .catch(err => {
-        return res.status(500).json({
-            success: 'Something went wrong..Please try again..!',
-            data: posts
         });
-    });
-    
+
 }
 
 module.exports = {

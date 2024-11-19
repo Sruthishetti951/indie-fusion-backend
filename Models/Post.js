@@ -4,10 +4,13 @@ const PostModel = mongoose.model('post', {
     mediaUrl: {
         type: String
     },
+    title: {
+        type: String
+    },
     text: {
         type: String
     },
-    postType: {
+    type: {
         type: String,
     },
     createdDate: {
@@ -22,8 +25,13 @@ const PostModel = mongoose.model('post', {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'users',
         required: true
-    }
-    
+    },
+    startDate: {
+        type: String
+    },
+    endDate: {
+        type: String
+    },
 }
 )
 
