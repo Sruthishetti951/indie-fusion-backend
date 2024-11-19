@@ -2,7 +2,6 @@ const { default: mongoose } = require("mongoose");
 
 const Profile = mongoose.model('profile',
     {
-        profilePhoto: String,
         phoneNumber: String,
         address:String,
         city: String,
@@ -14,6 +13,7 @@ const Profile = mongoose.model('profile',
         dob: String,
         interestedIn: String,
         openToCollab:{type: Boolean, default: true},
+        isActive:{type: Boolean, default: true},
         userId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'users',

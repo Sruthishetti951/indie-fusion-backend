@@ -13,6 +13,9 @@ const { getProfileImage, updateProfileImage, deleteProfileImage } = require('./C
 const { getProfileDetails, updateProfileDetails } = require('./Controllers/ProfileController');
 const { createPost, updatePost, deletePost, getPostById, getAllPosts, getAllPostsForAllUsers } = require('./Controllers/PostController');
 const { findUserInterceptor } = require('./Controllers/UsersController');
+const { addMember, updateStatus, getCurrentUserGroups, getCurrentUserGroupDetailsByGroupId, removeMember, activateGroup } = require('./Controllers/GroupController');
+const { sendCollaborationRequest, getUserStatus, updateCollabStatus, getAllCollabsByUserId } = require('./Controllers/CollabsController');
+const { getAllNotificationsByUserId, markNotificationAsRead } = require('./Controllers/NotificationsController');
 const app = express();
 const port = 8080;
 const saltRounds = 10;
@@ -226,6 +229,30 @@ app.put('/post/:id/:postId',findUserInterceptor,updatePost);
 app.delete('/post/:id/:postId',findUserInterceptor,deletePost);
 
 app.get('/post-dashboard/:id', findUserInterceptor, getAllPostsForAllUsers);
+
+//Group or event
+
+// app.post('/group/:id',findUserInterceptor,createGroup);
+
+
+//Member 
+
+app.put('/group/add-member/:id/:groupId',findUserInterceptor,addMember);
+app.put('/group/update-status/:id/:groupId',findUserInterceptor,updateStatus);
+app.put('/group/remove-member/:id/:groupId',findUserInterceptor,removeMember);
+app.put('/group/activate/:id/:groupId/:isActive',findUserInterceptor,activateGroup);
+
+app.get('/group/:id',findUserInterceptor,getCurrentUserGroups);
+app.get('/group/:id/:groupId',findUserInterceptor,getCurrentUserGroupDetailsByGroupId);
+
+app.post("/collab/:id/:requestedTo", findUserInterceptor, sendCollaborationRequest)
+app.get("/collab/:id/:requestedTo", findUserInterceptor, getUserStatus);
+app.put("/collab/:id/:requestedTo/:isApproved", findUserInterceptor, updateCollabStatus);
+app.get("/collab/:id", findUserInterceptor, getAllCollabsByUserId);
+
+app.get("/notifications/:id", findUserInterceptor, getAllNotificationsByUserId);
+app.get("/notifications/:id/:notificationId", findUserInterceptor, markNotificationAsRead);
+
 
 
 app.listen(port, () => {
