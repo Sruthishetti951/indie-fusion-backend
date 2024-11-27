@@ -10,7 +10,7 @@ const Users = require("../Models/Users");
 
 
 const createPost = (req, res) => {
-    const { text, type, title = '' } = req.body
+    const { text, type, title = '', startDate, endDate } = req.body
     const userId = req.params.id;
     const imageRequest = req.files?.media;
     if (!imageRequest && !text) {
@@ -35,12 +35,14 @@ const createPost = (req, res) => {
         text,
         type,
         userId,
-        title
+        title,
+        startDate,
+        endDate
     }
     const newPost = new PostModel(payload);
     newPost.save().then((newPostResponse) => {
         if (newPostResponse) {
-            if (type.toUpperCase() == "SELF") {
+            if (type.toUpperCase() == POST_TYPES.SELF || type.toUpperCase == POST_TYPES.EVENT) {
                 return res.status(200).json({
                     success: 'Post created successfully',
                     data: newPostResponse
@@ -77,7 +79,8 @@ const createPost = (req, res) => {
 
 const updatePost = (req, res) => {
     const postId = req.params.postId;
-    PostModel.findByIdAndUpdate(postId, { text: req.body.text }).exec().then((postUpdated) => {
+    const { text, title = '', startDate, endDate } = req.body;
+    PostModel.findByIdAndUpdate(postId, { text, title, startDate, endDate }).exec().then((postUpdated) => {
         if (postUpdated) {
             return res.status(200).json({
                 success: "Posted updated successfully",

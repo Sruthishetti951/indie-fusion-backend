@@ -16,6 +16,8 @@ const { findUserInterceptor } = require('./Controllers/UsersController');
 const { addMember, updateStatus, getCurrentUserGroups, getCurrentUserGroupDetailsByGroupId, removeMember, activateGroup } = require('./Controllers/GroupController');
 const { sendCollaborationRequest, getUserStatus, updateCollabStatus, getAllCollabsByUserId } = require('./Controllers/CollabsController');
 const { getAllNotificationsByUserId, markNotificationAsRead } = require('./Controllers/NotificationsController');
+const { getAllEvents, getEventById } = require('./Controllers/EventsController');
+const { getFilteredUserDetails } = require('./Controllers/SearchController');
 const app = express();
 const port = 8080;
 const saltRounds = 10;
@@ -253,6 +255,11 @@ app.get("/collab/:id", findUserInterceptor, getAllCollabsByUserId);
 app.get("/notifications/:id", findUserInterceptor, getAllNotificationsByUserId);
 app.get("/notifications/:id/:notificationId", findUserInterceptor, markNotificationAsRead);
 
+app.get("/post-event/:id", findUserInterceptor, getAllEvents);
+app.get("/post-event/:id/:postId", findUserInterceptor, getEventById);
+
+
+app.post("/search/:id/", findUserInterceptor, getFilteredUserDetails);
 
 
 app.listen(port, () => {
