@@ -253,7 +253,7 @@ app.put("/collab/:id/:requestedTo/:isApproved", findUserInterceptor, updateColla
 app.get("/collab/:id", findUserInterceptor, getAllCollabsByUserId);
 
 app.get("/notifications/:id", findUserInterceptor, getAllNotificationsByUserId);
-app.get("/notifications/:id/:notificationId", findUserInterceptor, markNotificationAsRead);
+app.put("/notifications/:id/:notificationId", findUserInterceptor, markNotificationAsRead);
 
 app.get("/post-event/:id", findUserInterceptor, getAllEvents);
 app.get("/post-event/:id/:postId", findUserInterceptor, getEventById);

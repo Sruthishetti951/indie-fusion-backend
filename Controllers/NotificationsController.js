@@ -18,7 +18,7 @@ const createNotification = async (notificationData) => {
 const markNotificationAsRead = async (req, res) => {
     const notificationId = req.params.notificationId;
     try {
-        const updatedNotification = await Notification.findByIdAndUpdate(
+        const updatedNotification = await NotificationSchema.findByIdAndUpdate(
             notificationId,
             { isRead: true }, // Update operation
             { new: true } // Return the updated document
@@ -32,7 +32,7 @@ const markNotificationAsRead = async (req, res) => {
         return res.status(200).json({
             success: true,
             message: 'Update notification failed',
-            data: updatedNotification
+            data: null
         });
     }
 };

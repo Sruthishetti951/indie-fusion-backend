@@ -42,7 +42,7 @@ const createPost = (req, res) => {
     const newPost = new PostModel(payload);
     newPost.save().then((newPostResponse) => {
         if (newPostResponse) {
-            if (type.toUpperCase() == POST_TYPES.SELF || type.toUpperCase == POST_TYPES.EVENT) {
+            if (type.toUpperCase() == POST_TYPES.SELF || type.toUpperCase() == POST_TYPES.EVENT) {
                 return res.status(200).json({
                     success: 'Post created successfully',
                     data: newPostResponse
